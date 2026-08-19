@@ -154,5 +154,5 @@ gtkwave build/async_fifo.vcd
 - [x] Asynchronous FIFO RTL
 - [x] Asynchronous FIFO self-checking testbench
 - [x] Assertions and functional coverage
-- [ ] UART RX, asynchronous FIFO and UART TX system integration
-- [ ] End-to-end multi-clock verification
+- [x] UART RX, asynchronous FIFO and UART TX system integration
+- [x] End-to-end multi-clock verification

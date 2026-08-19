@@ -11,4 +11,4 @@ A SystemVerilog RTL design and verification project targeting Digital IC Design 
 - [x] Self-checking testbench
 - [x] UART receiver
 - [x] Asynchronous FIFO
-- [ ] Assertions and functional coverageS
+- [x] Assertions and functional coverageS

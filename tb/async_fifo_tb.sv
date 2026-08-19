@@ -40,6 +40,22 @@ module async_fifo_tb;
         .empty    (empty)
     );
 
+        async_fifo_assertions #(
+        .ADDR_WIDTH (ADDR_WIDTH)
+    ) assertion_monitor (
+        .wr_clk    (wr_clk),
+        .wr_rst_n  (wr_rst_n),
+        .wr_en     (wr_en),
+        .full      (full),
+        .wptr_bin  (dut.wptr_bin),
+
+        .rd_clk    (rd_clk),
+        .rd_rst_n  (rd_rst_n),
+        .rd_en     (rd_en),
+        .empty     (empty),
+        .rptr_bin  (dut.rptr_bin)
+    );
+
     // Write clock：100 MHz，週期 10 ns
     initial begin
         wr_clk = 1'b0;
@@ -121,6 +137,15 @@ module async_fifo_tb;
             $display("[FAIL] FIFO should be empty after reset");
             error_count = error_count + 1;
         end
+
+        // FIFO 為空時嘗試讀取，pointer 應保持不變
+        @(negedge rd_clk);
+        rd_en = 1'b1;
+
+        @(negedge rd_clk);
+        rd_en = 1'b0;
+
+        repeat (2) @(posedge rd_clk);
 
         // 寫入 16 筆資料，填滿 FIFO
         for (i = 0; i < DEPTH; i = i + 1)

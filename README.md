@@ -84,6 +84,12 @@ Verification includes:
 - Blocked read while empty
 - Pointer-stability assertions
 - Functional coverage counters
+- FIFO almost-full threshold at 12 of 16 entries
+- FIFO almost-empty threshold at 2 entries
+- Upstream flow control through `rx_ready`
+- System-level threshold pause and resume verification
+- Overflow error injection
+- Protection against writes after FIFO full
 
 ### FIFO Coverage Result
 
@@ -117,6 +123,7 @@ UART RX (50 MHz) -> Asynchronous FIFO -> UART TX (150 MHz)
 ## Project Structure
 
 ```text
+│   └── uart_fifo_overflow_tb.sv
 uart-async-fifo-verification/
 ├── assertions/
 │   └── async_fifo_assertions.sv
@@ -206,3 +213,38 @@ asynchronous FIFO, read in the TX clock domain, and transmitted through
 `tx_serial`.
 
 ![UART A5 frame detail](docs/images/uart_a5_detail.png)
+
+### Reset and Startup Behavior
+
+During active-low reset, both UART serial lines remain in the idle-high
+state, the FIFO reports empty and almost-empty, and the upstream interface
+is not ready. After reset is released, `rx_ready` is asserted and the
+system begins normal operation.
+
+![UART FIFO reset sequence](docs/images/uart_fifo_reset_sequence.png)
+
+### FIFO Threshold and Overflow Protection
+
+The transmitter is intentionally disabled to fill the FIFO. At 12 entries,
+`fifo_almost_full` is asserted and `rx_ready` is deasserted. A non-compliant
+upstream sender continues transmitting until the FIFO reaches 16 entries.
+The additional byte is blocked and `overflow_error` is asserted without
+advancing the write pointer.
+
+![UART FIFO overflow protection](docs/images/uart_fifo_overflow_protection.png)
+
+### UART FIFO Overflow Protection
+
+```sh
+iverilog -g2012 -s uart_fifo_overflow_tb -o build/uart_fifo_overflow_tb.vvp rtl/uart_tx.sv rtl/uart_rx.sv rtl/async_fifo.sv rtl/uart_fifo_system.sv tb/uart_fifo_overflow_tb.sv
+vvp build/uart_fifo_overflow_tb.vvp
+
+### Threshold and Overflow Protection
+
+```text
+[PASS] almost_full asserted after 12 bytes
+[PASS] rx_ready deasserted at threshold
+[PASS] FIFO full asserted after 16 bytes
+[PASS] Overflow error detected
+[PASS] Extra byte was blocked while FIFO was full
+[TEST PASS] UART FIFO overflow protection completed

@@ -47,6 +47,9 @@ module uart_fifo_system_tb;
 
     logic fifo_full;
     logic fifo_empty;
+    logic fifo_almost_full;
+    logic fifo_almost_empty;
+    logic rx_ready;
     logic overflow_error;
     logic framing_error;
 
@@ -67,10 +70,13 @@ module uart_fifo_system_tb;
         .rst_n           (rst_n),
         .rx_serial       (rx_serial),
         .tx_serial       (tx_serial),
-        .fifo_full       (fifo_full),
-        .fifo_empty      (fifo_empty),
-        .overflow_error  (overflow_error),
-        .framing_error   (framing_error)
+        .fifo_full         (fifo_full),
+        .fifo_empty        (fifo_empty),
+        .fifo_almost_full  (fifo_almost_full),
+        .fifo_almost_empty (fifo_almost_empty),
+        .rx_ready          (rx_ready),
+        .overflow_error    (overflow_error),
+        .framing_error     (framing_error)
     );
 
     // RX clock：50 MHz，週期20 ns
@@ -191,6 +197,16 @@ module uart_fifo_system_tb;
         rst_n = 1'b1;
 
         repeat (5) @(posedge rx_clk);
+        if (rx_ready === 1'b1)
+            $display(
+                "[PASS] RX upstream interface is ready"
+            );
+        else begin
+            $display(
+                "[FAIL] rx_ready should be asserted after reset"
+            );
+            error_count = error_count + 1;
+        end
 
                 fork
             // 將5筆資料送進UART RX
@@ -200,6 +216,9 @@ module uart_fifo_system_tb;
                 for (send_index = 0;
                      send_index < NUM_BYTES;
                      send_index = send_index + 1) begin
+
+                    // 模擬會遵守Flow Control的上游設備
+                    wait (rx_ready === 1'b1);
 
                     send_rx_byte(expected_data[send_index]);
                 end

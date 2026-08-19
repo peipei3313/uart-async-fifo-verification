@@ -2,10 +2,15 @@
 
 module uart_fifo_system_tb;
 
+    //localparam int RX_CLOCK_FREQ = 50_000_000;
+    //localparam int TX_CLOCK_FREQ = 40_000_000;
+
     localparam int RX_CLOCK_FREQ = 50_000_000;
-    localparam int TX_CLOCK_FREQ = 40_000_000;
+    localparam int TX_CLOCK_FREQ = 150_000_000;
     localparam int BAUD_RATE     = 115_200;
-    localparam int NUM_BYTES     = 5;
+    localparam int NUM_BYTES     = 20;
+
+
 
     // 使用RTL實際採用的整數除法計算bit時間
     localparam int RX_CLKS_PER_BIT =
@@ -14,16 +19,23 @@ module uart_fifo_system_tb;
     localparam int TX_CLKS_PER_BIT =
         TX_CLOCK_FREQ / BAUD_RATE;
 
-    localparam int RX_CLOCK_PERIOD =
-        1_000_000_000 / RX_CLOCK_FREQ;
+    // 使用real避免150 MHz的6.667 ns被整數截成6 ns
+    localparam real RX_CLOCK_PERIOD =
+        1_000_000_000.0 / RX_CLOCK_FREQ;
 
-    localparam int TX_CLOCK_PERIOD =
-        1_000_000_000 / TX_CLOCK_FREQ;
+    localparam real TX_CLOCK_PERIOD =
+        1_000_000_000.0 / TX_CLOCK_FREQ;
 
-    localparam int RX_BIT_PERIOD =
+    localparam real RX_CLOCK_HALF_PERIOD =
+        RX_CLOCK_PERIOD / 2.0;
+
+    localparam real TX_CLOCK_HALF_PERIOD =
+        TX_CLOCK_PERIOD / 2.0;
+
+    localparam real RX_BIT_PERIOD =
         RX_CLKS_PER_BIT * RX_CLOCK_PERIOD;
 
-    localparam int TX_BIT_PERIOD =
+    localparam real TX_BIT_PERIOD =
         TX_CLKS_PER_BIT * TX_CLOCK_PERIOD;
 
     logic rx_clk;
@@ -61,16 +73,20 @@ module uart_fifo_system_tb;
         .framing_error   (framing_error)
     );
 
-    // RX clock：50 MHz
+    // RX clock：50 MHz，週期20 ns
     initial begin
         rx_clk = 1'b0;
-        forever #10 rx_clk = ~rx_clk;
+
+        forever #(RX_CLOCK_HALF_PERIOD)
+            rx_clk = ~rx_clk;
     end
 
-    // TX clock：40 MHz，與RX clock不同
+    // TX clock：150 MHz，週期約6.667 ns
     initial begin
         tx_clk = 1'b0;
-        forever #12.5 tx_clk = ~tx_clk;
+
+        forever #(TX_CLOCK_HALF_PERIOD)
+            tx_clk = ~tx_clk;
     end
 
     // 產生GTKWave波形
@@ -140,7 +156,7 @@ module uart_fifo_system_tb;
 
     // 防止錯誤造成模擬無限等待
     initial begin
-        #10_000_000;
+        #50_000_000;
         $display("[TEST FAIL] Simulation timeout");
         $finish;
     end
@@ -150,11 +166,25 @@ module uart_fifo_system_tb;
         rst_n        = 1'b0;
         rx_serial    = 1'b1;
 
-        expected_data[0] = 8'hA5;
-        expected_data[1] = 8'h3C;
-        expected_data[2] = 8'h00;
-        expected_data[3] = 8'hFF;
-        expected_data[4] = 8'h5A;
+        // 固定邊界值：保證重要資料型態一定被測到
+        expected_data[0] = 8'h00;  // 全部為0
+        expected_data[1] = 8'hFF;  // 全部為1
+        expected_data[2] = 8'hAA;  // 10101010
+        expected_data[3] = 8'h55;  // 01010101
+        expected_data[4] = 8'hA5;  // 混合資料
+        expected_data[5] = 8'h3C;  // 混合資料
+
+        // 其餘14筆隨機產生
+        for (i = 6; i < NUM_BYTES; i = i + 1) begin
+            expected_data[i] =
+                $urandom_range(8'hFF, 8'h00);
+
+            $display(
+                "[INFO] Random byte %0d = 0x%02h",
+                i,
+                expected_data[i]
+            );
+        end
 
         repeat (5) @(posedge rx_clk);
         repeat (5) @(posedge tx_clk);
@@ -188,7 +218,7 @@ module uart_fifo_system_tb;
                     if (received_data ===
                         expected_data[receive_index]) begin
 
-                        $display(
+                        $display(   
                             "[PASS] Byte %0d: expected 0x%02h, received 0x%02h",
                             receive_index,
                             expected_data[receive_index],

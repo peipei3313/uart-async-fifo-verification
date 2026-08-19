@@ -2,20 +2,32 @@
 
 A SystemVerilog RTL design and verification project targeting Digital IC Design and IC Verification roles.
 
-The project currently includes independently verified UART transmitter, UART receiver, and asynchronous FIFO modules. Future work will integrate these modules into a complete multi-clock UART communication system.
+The project integrates a UART receiver, Gray-code asynchronous FIFO, and UART transmitter into a complete multi-clock communication system. Data is received in a 50 MHz clock domain and transmitted in a 150 MHz clock domain through a 16-entry asynchronous FIFO.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    A["Serial RX"] --> B["UART Receiver"]
-    B -. "Planned integration" .-> C["Asynchronous FIFO"]
-    C -. "Planned integration" .-> D["UART Transmitter"]
+    A["Serial RX"] --> B["UART Receiver<br/>50 MHz"]
+    B -->|"8-bit data"| C["Asynchronous FIFO<br/>16 × 8-bit"]
+    C -->|"8-bit data"| D["UART Transmitter<br/>150 MHz"]
     D --> E["Serial TX"]
-```
 
-## Implemented Features
 
+
+### 3. 在Implemented Features增加系统整合
+
+放在Async FIFO段落后面：
+
+```markdown
+### Integrated UART FIFO System
+
+- UART RX operating in the 50 MHz clock domain
+- UART TX operating in the 150 MHz clock domain
+- 115200 baud operation in both UART domains
+- Asynchronous FIFO for clock-domain crossing
+- End-to-end ordered-data verification
+- FIFO overflow and UART framing-error monitoring
 ### UART Transmitter
 
 - Configurable clock frequency and baud rate
@@ -47,14 +59,15 @@ flowchart LR
 
 | Component | Parameter | Value |
 |---|---|---:|
-| UART | Clock frequency | 50 MHz |
+| UART RX | Clock frequency | 50 MHz |
+| UART TX | Clock frequency | 150 MHz |
 | UART | Baud rate | 115200 |
 | UART | Data width | 8 bits |
 | FIFO | Data width | 8 bits |
 | FIFO | Address width | 4 bits |
 | FIFO | Depth | 16 entries |
-| FIFO test | Write clock | 100 MHz |
-| FIFO test | Read clock | Approximately 71.4 MHz |
+| FIFO unit test | Write clock | 100 MHz |
+| FIFO unit test | Read clock | Approximately 71.4 MHz |
 
 ## Verification
 
@@ -83,7 +96,24 @@ Blocked reads     : 1
 [ASSERTION PASS] All FIFO assertions passed
 [COVERAGE PASS] All planned events were observed
 ```
+### End-to-End Verification Result
 
+The integration test transmits five bytes through the complete data path:
+
+```text
+UART RX (50 MHz) -> Asynchronous FIFO -> UART TX (150 MHz)
+
+[PASS] Byte 0: expected 0xA5, received 0xA5
+[PASS] Byte 1: expected 0x3C, received 0x3C
+[PASS] Byte 2: expected 0x00, received 0x00
+[PASS] Byte 3: expected 0xFF, received 0xFF
+[PASS] Byte 4: expected 0x5A, received 0x5A
+[TEST PASS] UART FIFO end-to-end verification completed
+
+
+### 6. 更新Project Structure
+
+```markdown
 ## Project Structure
 
 ```text
@@ -93,17 +123,21 @@ uart-async-fifo-verification/
 ├── rtl/
 │   ├── uart_tx.sv
 │   ├── uart_rx.sv
-│   └── async_fifo.sv
+│   ├── async_fifo.sv
+│   └── uart_fifo_system.sv
 ├── tb/
 │   ├── uart_tx_tb.sv
 │   ├── uart_rx_tb.sv
-│   └── async_fifo_tb.sv
-├── build/
+│   ├── async_fifo_tb.sv
+│   └── uart_fifo_system_tb.sv
 ├── docs/
+│   └── images/
+│       ├── uart_fifo_end_to_end.png
+│       └── uart_a5_detail.png
+├── build/
 ├── scripts/
 ├── .gitignore
 └── README.md
-```
 
 ## Tools
 
@@ -156,3 +190,19 @@ gtkwave build/async_fifo.vcd
 - [x] Assertions and functional coverage
 - [x] UART RX, asynchronous FIFO and UART TX system integration
 - [x] End-to-end multi-clock verification
+
+## End-to-End Waveform
+
+Five UART bytes are received in the 50 MHz RX clock domain, transferred
+through the asynchronous FIFO, and transmitted in the 40 MHz TX clock
+domain without data loss or reordering.
+
+![UART FIFO end-to-end waveform](docs/images/uart_fifo_end_to_end.png)
+
+### UART Frame Detail
+
+The waveform shows byte `0xA5` being received, written into the
+asynchronous FIFO, read in the TX clock domain, and transmitted through
+`tx_serial`.
+
+![UART A5 frame detail](docs/images/uart_a5_detail.png)

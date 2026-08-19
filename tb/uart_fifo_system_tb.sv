@@ -41,6 +41,7 @@ module uart_fifo_system_tb;
     logic rx_clk;
     logic tx_clk;
     logic rst_n;
+    logic tx_enable;
 
     logic rx_serial;
     logic tx_serial;
@@ -65,9 +66,10 @@ module uart_fifo_system_tb;
         .BAUD_RATE       (BAUD_RATE),
         .FIFO_ADDR_WIDTH (4)
     ) dut (
-        .rx_clk          (rx_clk),
-        .tx_clk          (tx_clk),
-        .rst_n           (rst_n),
+        .rx_clk     (rx_clk),
+        .tx_clk     (tx_clk),
+        .rst_n      (rst_n),
+        .tx_enable  (tx_enable),
         .rx_serial       (rx_serial),
         .tx_serial       (tx_serial),
         .fifo_full         (fifo_full),
@@ -171,6 +173,8 @@ module uart_fifo_system_tb;
         error_count = 0;
         rst_n        = 1'b0;
         rx_serial    = 1'b1;
+        // 一開始暫停TX，讓RX資料累積到FIFO
+        tx_enable = 1'b0;
 
         // 固定邊界值：保證重要資料型態一定被測到
         expected_data[0] = 8'h00;  // 全部為0
@@ -256,6 +260,56 @@ module uart_fifo_system_tb;
                     end
                 end
             end
+            // Threshold與Flow Control監控程序
+            begin : threshold_control_process
+
+                // 等待FIFO累積到12筆
+                wait (fifo_almost_full === 1'b1);
+
+                $display(
+                    "[PASS] fifo_almost_full asserted at threshold"
+                );
+
+                // almost-full時，系統應通知上游停止
+                if (rx_ready === 1'b0) begin
+                    $display(
+                        "[PASS] rx_ready deasserted to stop upstream"
+                    );
+                end
+                else begin
+                    $display(
+                        "[FAIL] rx_ready should be 0 when FIFO is almost full"
+                    );
+                    error_count = error_count + 1;
+                end
+
+                // 保持TX暫停數個clock，確認資料留在FIFO
+                repeat (5) @(posedge tx_clk);
+
+                // 恢復TX，開始排出FIFO資料
+                tx_enable = 1'b1;
+
+                $display(
+                    "[INFO] TX enabled to drain FIFO"
+                );
+
+                // 等待FIFO降到Threshold以下
+                wait (fifo_almost_full === 1'b0);
+
+                if (rx_ready === 1'b1) begin
+                    $display(
+                        "[PASS] rx_ready asserted after FIFO dropped below threshold"
+                    );
+                end
+                else begin
+                    $display(
+                        "[FAIL] rx_ready should return to 1"
+                    );
+                    error_count = error_count + 1;
+                end
+
+            end
+
         join
         repeat (10) @(posedge tx_clk);
 

@@ -16,6 +16,9 @@ module uart_fifo_system #(
     input logic tx_clk,
     input logic rst_n,
 
+    // 允許或暫停TX從FIFO取資料
+    input logic tx_enable,
+
     input  logic rx_serial,
     output logic tx_serial,
 
@@ -135,7 +138,11 @@ module uart_fifo_system #(
 
             case (tx_state)
                 TX_IDLE: begin
-                    if (!fifo_empty && !tx_busy) begin
+                    // tx_enable=0時，暫停從FIFO讀取
+                    if (tx_enable &&
+                        !fifo_empty &&
+                        !tx_busy) begin
+
                         fifo_rd_en <= 1'b1;
                         tx_state   <= FIFO_READ;
                     end

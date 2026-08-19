@@ -8,7 +8,7 @@ A SystemVerilog RTL design and verification project targeting Digital IC Design 
 - [x] UART TX testbench
 - [x] Icarus Verilog simulation
 - [x] GTKWave waveform verification
-- [ ] Self-checking testbench
+- [x] Self-checking testbench
 - [ ] UART receiver
 - [ ] Asynchronous FIFO
 - [ ] Assertions and functional coverage

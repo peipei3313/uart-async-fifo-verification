@@ -9,6 +9,6 @@ A SystemVerilog RTL design and verification project targeting Digital IC Design 
 - [x] Icarus Verilog simulation
 - [x] GTKWave waveform verification
 - [x] Self-checking testbench
-- [ ] UART receiver
+- [x] UART receiver
 - [ ] Asynchronous FIFO
-- [ ] Assertions and functional coverage
+- [ ] Assertions and functional coverageS
